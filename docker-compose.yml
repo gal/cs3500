@@ -14,6 +14,7 @@ services:
       - "8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+
   postgres-timber:
     container_name: pgres
     image: "postgres"
@@ -33,6 +34,7 @@ services:
         "-c",
         "log_min_error_statement=ERROR",
       ]
+
   redis-timber:
     container_name: rdis
     image: "redis:alpine"
@@ -42,6 +44,7 @@ services:
       - "6379:6379"
     volumes:
       - "rdbdata_timber:/data"
+
   timber-api:
     command: modd
     container_name: timber-api
@@ -78,6 +81,11 @@ services:
       - postgres-timber
       - redis-timber
       - reverse-proxy
+    logging:
+      driver: json-file
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"   
+
   timber-client:
     container_name: timber-client
     build:
@@ -102,6 +110,39 @@ services:
     volumes:
       - ./ui:/app
       - /app/node_modules
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ADMIN1234
+      GF_SECURITY_ADMIN_USER: ADMIN
+      GF_AUTH_ANONYMOUS_ENABLED: false
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_AUTH_ANONYMOUS_ORG_NAME: Public
+
+  loki:
+    image: grafana/loki:2.3.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: "--config.file=/etc/loki/loki.yml"
+    volumes:
+      - ./loki:/etc/loki
+
+  promtail:
+    image: grafana/promtail
+    container_name: promtail
+    ports:
+      - "9090:9090"
+    command: "--config.file=/etc/promtail/promtail.yml"
+    volumes:
+      - ./promtail:/etc/promtail
+      - /var/lib/docker:/var/lib/docker:ro
+
+
 volumes:
   pgdata_timber:
   rdbdata_timber:
